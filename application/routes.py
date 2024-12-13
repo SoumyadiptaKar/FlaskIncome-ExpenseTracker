@@ -1,10 +1,9 @@
-from flask import render_template, redirect, url_for, request, jsonify
+from flask import render_template, redirect, url_for, request
 from application import app, db
 import plotly.express as px
 from application.models import IncomeExpenses, MonthlyIncome
 from datetime import datetime
 import pandas as pd
-from sqlalchemy import extract
 
 @app.route('/')
 def index():
@@ -68,15 +67,8 @@ def delete_expense(id):
 
 @app.route('/dashboard')
 def dashboard():
-    # Get current month and year
-    current_year = datetime.now().year
-    current_month = datetime.now().month
-
-    # Filter expenses for the current month and year
-    expenses = IncomeExpenses.query.filter(
-        extract('year', IncomeExpenses.date) == current_year,
-        extract('month', IncomeExpenses.date) == current_month
-    ).order_by(IncomeExpenses.date).all()
+    # Get all expenses sorted by date
+    expenses = IncomeExpenses.query.order_by(IncomeExpenses.date).all()
 
     # Calculate the total spent in each description
     expense_data = {}
@@ -98,7 +90,7 @@ def dashboard():
         title="Expenses by Description"
     )
 
-    # Time Series Line Chart (Expenses Over Time) for the current month
+    # Time Series Line Chart (Expenses Over Time)
     expense_dates = [expense.date for expense in expenses]
     expense_amounts = [expense.amount for expense in expenses]
 
@@ -109,12 +101,8 @@ def dashboard():
         labels={'x': 'Date', 'y': 'Expense Amount'}
     )
 
-    # Get monthly income for the current month
-    monthly_income_record = MonthlyIncome.query.filter(
-        extract('year', MonthlyIncome.date_set) == current_year,
-        extract('month', MonthlyIncome.date_set) == current_month
-    ).order_by(MonthlyIncome.date_set.desc()).first()
-    
+    # Get monthly income
+    monthly_income_record = MonthlyIncome.query.order_by(MonthlyIncome.date_set.desc()).first()
     if monthly_income_record:
         monthly_income = monthly_income_record.income
         total_expenses = sum(amounts)
@@ -148,10 +136,12 @@ def dashboard():
         monthly_income=monthly_income
     )
 
-@app.route('/monthly_dashboard', methods=['GET', 'POST'])
+@app.route('/monthly_dashboard')
 def monthly_dashboard():
-    # Fetch all expenses and group them by month and year
-    expenses = IncomeExpenses.query.order_by(IncomeExpenses.date).all()
+    # Get all expenses
+    expenses = IncomeExpenses.query.all()
+
+    # Group expenses by month and year
     data = []
     for expense in expenses:
         year_month = expense.date.strftime("%Y-%m")  # Format: "YYYY-MM"
@@ -161,7 +151,7 @@ def monthly_dashboard():
             'amount': expense.amount,
             'date': expense.date
         })
-
+    
     # Create a DataFrame for easier manipulation
     df_expenses = pd.DataFrame(data)
 
@@ -194,62 +184,17 @@ def monthly_dashboard():
         fig_pie = px.pie(names=list(pie_data.keys()), values=list(pie_data.values()), title=f"Savings vs Utilized for {month}")
         pie_charts_html[month] = fig_pie.to_html(full_html=False)
 
-    # Line graph for expenses over time
-    expense_dates = [expense.date for expense in expenses]
-    expense_amounts = [expense.amount for expense in expenses]
-
+    # Time Series Line Chart for each month (expenses over time)
     fig_line = px.line(
-        x=expense_dates,
-        y=expense_amounts,
-        title="Expenses Over Time",
-        labels={'x': 'Date', 'y': 'Expense Amount'}
+        df_expenses, 
+        x='date', 
+        y='amount', 
+        color='description',
+        title="Expenses Over Time (Grouped by Month)",
+        labels={'date': 'Date', 'amount': 'Expense Amount'}
     )
 
-    # Handle the POST request when a month is selected
-    if request.method == 'POST':
-        selected_month = request.form['month']
-        selected_year = request.form['year']
-        selected_year_month = f"{selected_year}-{selected_month}"
-
-        # Filter expenses for the selected month
-        filtered_expenses = df_expenses[df_expenses['year_month'] == selected_year_month]
-        expense_data = {}
-        for expense in filtered_expenses.itertuples():
-            description = expense.description
-            amount = expense.amount
-            if description not in expense_data:
-                expense_data[description] = 0
-            expense_data[description] += amount
-
-        descriptions = list(expense_data.keys())
-        amounts = list(expense_data.values())
-
-        # Create Bar Chart for selected month
-        fig_expenses_selected = px.bar(
-            x=descriptions,
-            y=amounts,
-            labels={'x': 'Description', 'y': 'Amount'},
-            title=f"Expenses for {selected_year_month} by Description"
-        )
-
-        # Get pie chart for the selected month
-        total_expense = monthly_expenses[monthly_expenses['year_month'] == selected_year_month]['amount'].values[0]
-        income = income_data.get(selected_year_month, 0)
-        savings = income - total_expense if income else 0
-
-        pie_data = {'Utilized': total_expense, 'Saved': savings}
-        fig_pie_selected = px.pie(names=list(pie_data.keys()), values=list(pie_data.values()), title=f"Savings vs Utilized for {selected_year_month}")
-
-        # Convert selected month graphs to HTML
-        selected_bar_chart_html = fig_expenses_selected.to_html(full_html=False)
-        selected_pie_chart_html = fig_pie_selected.to_html(full_html=False)
-
-        return jsonify({
-            'bar_chart_html': selected_bar_chart_html,
-            'pie_chart_html': selected_pie_chart_html
-        })
-
-    # If it's a GET request, load the default data
+    # Render the monthly dashboard
     return render_template(
         'monthly_dashboard.html', 
         bar_chart_html=fig_expenses.to_html(full_html=False),
@@ -272,6 +217,6 @@ def set_income():
         db.session.add(new_income)
         db.session.commit()
 
-        return redirect(url_for('monthly_dashboard'))
+        return redirect(url_for('add_expense'))
     
     return render_template('set_income.html')
