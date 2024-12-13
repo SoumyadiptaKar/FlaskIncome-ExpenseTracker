@@ -1,0 +1,53 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <h1>Monthly Dashboard</h1>
+
+    <!-- Monthly Income and Expenses -->
+    <div class="monthly-summary">
+        <h3>Monthly Summary</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Total Expenses</th>
+                    <th>Income</th>
+                    <th>Savings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for month in monthly_expenses['year_month'] %}
+                <tr>
+                    <td>{{ month }}</td>
+                    <td>₹{{ monthly_expenses[monthly_expenses['year_month'] == month]['amount'].values[0] }}</td>
+                    <td>₹{{ income_data.get(month, 0) }}</td>
+                    <td>₹{{ income_data.get(month, 0) - monthly_expenses[monthly_expenses['year_month'] == month]['amount'].values[0] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Display the Bar Chart for Monthly Expenses -->
+    <div class="chart-container">
+        <h3>Monthly Expenses</h3>
+        <div>{{ bar_chart_html | safe }}</div>
+    </div>
+
+    <!-- Display Pie Charts for Savings vs Utilized for Each Month -->
+    <div class="chart-container">
+        <h3>Savings vs Utilized (Monthly)</h3>
+        {% for month, pie_chart in pie_charts_html.items() %}
+        <div>
+            <h4>{{ month }}</h4>
+            <div>{{ pie_chart | safe }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Display the Time Series Line Graph for Expenses Over Time -->
+    <div class="chart-container">
+        <h3>Expenses Over Time</h3>
+        <div>{{ line_graph_html | safe }}</div>
+    </div>
+{% endblock %}

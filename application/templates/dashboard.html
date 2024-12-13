@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <h1>Expense Dashboard</h1>
+
+    <!-- Display Total Expenditure and Remaining Balance -->
+    <div class="total-summary">
+        <h3>Total Expenditure: ₹{{ total_expenses }}</h3>
+        <h3>Remaining Balance: ₹{{ savings }}</h3>
+    </div>
+
+    <!-- Display the Bar Chart for Expenses by Description -->
+    <div class="chart-container">
+        <h3>Expenses by Description</h3>
+        <div>{{ bar_chart_html | safe }}</div>
+    </div>
+
+    <!-- Display the Pie Chart for Savings vs Utilized -->
+    <div class="chart-container">
+        <h3>Savings vs Utilized</h3>
+        <div>{{ pie_chart_html | safe }}</div>
+    </div>
+
+    <!-- Display the Time Series Line Graph for Expenses Over Time -->
+    <div class="chart-container">
+        <h3>Expenses Over Time</h3>
+        <div>{{ line_graph_html | safe }}</div>
+    </div>
+{% endblock %}
